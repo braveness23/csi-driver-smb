@@ -124,17 +124,17 @@ func (mounter *Mounter) MountSensitive(source string, target string, fstype stri
 					if err == nil || isAccessDeniedError(err) {
 						klog.V(2).Infof("SMB Mapping(%s) already exists while it's not valid, return error: %v, now begin to remove and remount", source, err)
 						if output, err = removeSMBMapping(source); err != nil {
-							return fmt.Errorf("Remove-SmbGlobalMapping failed: %v, output: %q", err, output)
+							return fmt.Errorf("Remove-SmbMapping failed: %v, output: %q", err, output)
 						}
 						if output, err := newSMBMapping(username, password, source); err != nil {
-							return fmt.Errorf("New-SmbGlobalMapping(%s) failed: %v, output: %q", source, err, output)
+							return fmt.Errorf("New-SmbMapping(%s) failed: %v, output: %q", source, err, output)
 						}
 					}
 				} else {
 					klog.V(2).Infof("SMB Mapping(%s) already exists and is still valid, skip error(%v)", source, err)
 				}
 			} else {
-				return fmt.Errorf("New-SmbGlobalMapping(%s) failed: %v, output: %q", source, err, output)
+				return fmt.Errorf("New-SmbMapping(%s) failed: %v, output: %q", source, err, output)
 			}
 		}
 	}
@@ -171,7 +171,7 @@ func newSMBMapping(username, password, remotepath string) (string, error) {
 	// https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-5.1
 	cmdLine := `$PWord = ConvertTo-SecureString -String $Env:smbpassword -AsPlainText -Force` +
 		`;$Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $Env:smbuser, $PWord` +
-		`;New-SmbGlobalMapping -RemotePath $Env:smbremotepath -Credential $Credential -RequirePrivacy $true`
+		`;New-SmbMapping -RemotePath $Env:smbremotepath -Credential $Credential -RequirePrivacy $true`
 	cmd := exec.Command("powershell", "/c", cmdLine)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("smbuser=%s", username),
@@ -184,7 +184,7 @@ func newSMBMapping(username, password, remotepath string) (string, error) {
 
 // check whether remotepath is already mounted
 func isSMBMappingExist(remotepath string) bool {
-	cmd := exec.Command("powershell", "/c", `Get-SmbGlobalMapping -RemotePath $Env:smbremotepath`)
+	cmd := exec.Command("powershell", "/c", `Get-SmbMapping -RemotePath $Env:smbremotepath`)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("smbremotepath=%s", remotepath))
 	_, err := cmd.CombinedOutput()
 	return err == nil
@@ -209,7 +209,7 @@ func isAccessDeniedError(err error) bool {
 
 // remove SMB mapping
 func removeSMBMapping(remotepath string) (string, error) {
-	cmd := exec.Command("powershell", "/c", `Remove-SmbGlobalMapping -RemotePath $Env:smbremotepath -Force`)
+	cmd := exec.Command("powershell", "/c", `Remove-SmbMapping -RemotePath $Env:smbremotepath -Force`)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("smbremotepath=%s", remotepath))
 	output, err := cmd.CombinedOutput()
 	return string(output), err
